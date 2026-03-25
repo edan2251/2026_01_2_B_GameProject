@@ -1,81 +1,127 @@
 #if UNITY_EDITOR
-using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.IO;
-using UnityEditor;
+
 using UnityEngine;
+using UnityEditor;
+using System.IO;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using System;
 
-public class JsonToScriptableConvertor : EditorWindow
+
+
+public enum ConversionType
 {
-    private string jsonFIlePath = "";       //Json경로 문자열 값
-    private string outputFolder = "Assets/ScriptableObjects/Items"; //출력 SO 파일 경로 값
-    private bool createDatabase = true;       //데이터 베이스 활용 여부 체크 값
+    Items,
+    Dialogs
+}
 
-    [MenuItem("Tools/Json to ScriptableObjects")]
-    public static void ShowWIndow()
+[Serializable]
+public class DialogRowData
+{
+    public int? id;                             //int?는 Nullable<int>의 축약 표현 입니다. 선언하면 null 값도 가질 수 있는 정수형
+    public string characterName;
+    public string text;
+    public int? nextId;
+    public string protraitPath;
+    public string choiceText;
+    public int? choiceNextId;
+}
+
+
+public class JsonToScriptableConverter : EditorWindow
+{
+    private string jsonFilePath = "";                                           //JSON 파일 경로 문자열 값
+    private string outputFolder = "Assets/ScriptableObjects";                   //출력 SO 파일 경로 값
+    private bool createDatabase = true;                                         //데이터 베이스 활용 여부 체크 값
+    private ConversionType conversionType = ConversionType.Items;
+
+    [MenuItem("Tools/JSON to Scriptable Objects")]
+    public static void ShowWindow()
     {
-        GetWindow<JsonToScriptableConvertor>("Json to ScriptableObjects");
+        GetWindow<JsonToScriptableConverter>("JSON to Scriptable Objects");
     }
 
-     void OnGUI()
+    void OnGUI()
     {
-        GUILayout.Label("JSON to scriptable objects Converter", EditorStyles.boldLabel);
+        GUILayout.Label("JSON to Scriptable object Converter", EditorStyles.boldLabel);
         EditorGUILayout.Space();
 
-        if(GUILayout.Button("Select JSON File"))
+        if (GUILayout.Button("Select JSON File"))
         {
-            jsonFIlePath = EditorUtility.OpenFilePanel("Select JSON File", "", "json");
+            jsonFilePath = EditorUtility.OpenFilePanel("Select JSON File", "", "json");
         }
 
-        EditorGUILayout.LabelField("Selected File : ", jsonFIlePath);
+        EditorGUILayout.LabelField("Selected File : ", jsonFilePath);
         EditorGUILayout.Space();
+
+        //변환 타입 선택
+        conversionType = (ConversionType)EditorGUILayout.EnumPopup("Conversion Type: ", conversionType);
+
+        //타입에 따라 기본 출력 폴더 설정 
+        if (conversionType == ConversionType.Items && outputFolder == "Assets/ScriptableObjects")
+        {
+            outputFolder = "Assets/ScriptableObjects/Items";
+        }
+        else if (conversionType == ConversionType.Dialogs && outputFolder == "Assets/ScriptableObjects")
+        {
+            outputFolder = "Assets/ScriptableObjects/Dialogs";
+        }
 
         outputFolder = EditorGUILayout.TextField("Output Folder : ", outputFolder);
-        createDatabase = EditorGUILayout.Toggle("Create Database Asset", createDatabase);
+        createDatabase = EditorGUILayout.Toggle("Create Databse Asset", createDatabase);
         EditorGUILayout.Space();
 
-        if(GUILayout.Button("Convert to ScriptableObjects"))
+        if (GUILayout.Button("Convert to Scriptable Objects"))
         {
-            if (string.IsNullOrEmpty(jsonFIlePath))
+            if (string.IsNullOrEmpty(jsonFilePath))
             {
-                EditorUtility.DisplayDialog("Error", "Please select a JSON file first!", "OK");
+                EditorUtility.DisplayDialog("Error", "Pease Select a JSON file first", "OK");
                 return;
             }
 
-            ConvertJsonToScriptableObjects();
+            switch (conversionType)
+            {
+                case ConversionType.Items:
+                    ConvertJsonToItemScriptableObjects();
+                    break;
+                case ConversionType.Dialogs:
+                    ConvertJsonToDialogScriptableObjects();
+                    break;
+            }
         }
     }
 
-    private void ConvertJsonToScriptableObjects()       //Json을 ScriptableObject로 변환하는 함수
+    private void ConvertJsonToItemScriptableObjects()                                //JSON 파일을 ScriptableObject 파일로 변환 시켜주는 함수
     {
         //폴더 생성
-        if(!Directory.Exists(outputFolder))     //폴더 위치를 확인하고 없으면 폴더 생성
+        if (!Directory.Exists(outputFolder))                                    //폴더 위치를 확인하고 없으면 생성한다. 
         {
             Directory.CreateDirectory(outputFolder);
         }
 
-        //Json 파일 읽기
-        string jsonText = File.ReadAllText(jsonFIlePath);   //Json파일을 읽는다.
+        //JSON 파일 읽기
+        string jsonText = File.ReadAllText(jsonFilePath);                           //JSON 파일을 읽는다. 
 
         try
         {
+            //JSON 파싱
             List<ItemData> itemDataList = JsonConvert.DeserializeObject<List<ItemData>>(jsonText);
 
-            List<ItemSO> createdItems = new List<ItemSO>();     //itemSO 리스트 생성
+            List<ItemSO> createdItems = new List<ItemSO>();                 //ItemSO 리스트 생성
 
             //각 아이템을 데이터 스크립터블 오브젝트로 변환
             foreach (ItemData itemData in itemDataList)
             {
-                ItemSO itemSO = ScriptableObject.CreateInstance<ItemSO>();   //ScriptableObject 인스턴스 생성
+                ItemSO itemSO = ScriptableObject.CreateInstance<ItemSO>();                              //ItemSO 파일을 생성
 
-                //실제 데이터 복사 시작
+                //데이터 복사
                 itemSO.id = itemData.id;
                 itemSO.itemName = itemData.itemName;
                 itemSO.nameEng = itemData.nameEng;
                 itemSO.description = itemData.description;
 
                 //열거형 변환
-                if(System.Enum.TryParse(itemData.itemTypeString, out ItemType parsedType))
+                if (System.Enum.TryParse(itemData.itemTypeString, out ItemType parsedType))
                 {
                     itemSO.itemType = parsedType;
                 }
@@ -89,51 +135,181 @@ public class JsonToScriptableConvertor : EditorWindow
                 itemSO.level = itemData.level;
                 itemSO.isStackable = itemData.isStackable;
 
-                //아이콘 로드(경로가 있는 경우
-                if(!string.IsNullOrEmpty(itemData.iconPath))    //아이콘 경로가 있는지 확인
+                //아이콘 로드 (경로가 있는 경우)
+                if (!string.IsNullOrEmpty(itemData.iconPath))                       //아이콘 경로가 있는지 확인한다. 
                 {
-                    itemSO.icon = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Resources/{itemData.iconPath}");   //아이콘 경로에서 스프라이트 로드
-                
-                    if(itemSO.icon == null)
+                    itemSO.icon = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Resources/{itemData.iconPath}.png");
+
+                    if (itemSO.icon == null)
                     {
-                        Debug.LogWarning($"아이템 { itemData.nameEng}의 아이콘을 로드할 수 없습니다. 경로 : {itemData.iconPath}");
+                        Debug.LogWarning($"아이템 {itemData.nameEng} 의 아이콘을 찾을 수 없습니다. : {itemData.iconPath}");
                     }
                 }
 
-                //스크립터블오브젝트 저장 - ID를 4자리 숫자로 포맷팅
-                string assetPath = $"{outputFolder}/Item_{itemData.id.ToString("D4")}_{itemData.nameEng}.asset";   //저장할 경로와 파일 이름 설정
-                AssetDatabase.CreateAsset(itemSO, assetPath);   //스크립터블 오브젝트를 에셋으로 저장
+                //스크립터블 오브젝트 저장 - ID를 4자리 숫자로 포맷팅
+                string assetPath = $"{outputFolder}/Item_{itemData.id.ToString("D4")}_{itemData.nameEng}.asset";
+                AssetDatabase.CreateAsset(itemSO, assetPath);
 
-                //에셋 이름 지정
-                itemSO.name = $"Item_{itemData.id.ToString("D4")}_{itemData.nameEng}";    //에셋 이름 설정
-                createdItems.Add(itemSO);    //생성된 아이템을 리스트에 추가
+                //이셋 이름 지정
+                itemSO.name = $"Item_{itemData.id.ToString("D4")} + {itemData.nameEng}";
+                createdItems.Add(itemSO);
 
-                EditorUtility.SetDirty(itemSO);   //에셋이 변경되었음을 알림
-
+                EditorUtility.SetDirty(itemSO);
             }
+
             //데이터베이스
             if (createDatabase && createdItems.Count > 0)
             {
-                ItemDataBaseSO dataBase = ScriptableObject.CreateInstance<ItemDataBaseSO>();
+                ItemDataBaseSO dataBase = ScriptableObject.CreateInstance<ItemDataBaseSO>();            //생성
                 dataBase.items = createdItems;
 
-                AssetDatabase.CreateAsset(dataBase, $"{outputFolder}/ItemDataBase.asset");
+                AssetDatabase.CreateAsset(dataBase, $"{outputFolder}/ItemDatabase.asset");
                 EditorUtility.SetDirty(dataBase);
             }
 
-            AssetDatabase.SaveAssets();   //에셋 저장
-            AssetDatabase.Refresh();      //에셋 데이터베이스 새로고침
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
 
-            EditorUtility.DisplayDialog("Success", $"Created {createdItems.Count} scriptable objects!", "OK");
+            EditorUtility.DisplayDialog("Sucess", $"Created {createdItems.Count} scriptable objects!", "OK");
         }
-
-        catch(System.Exception e)
+        catch (System.Exception e)
         {
-            EditorUtility.DisplayDialog("Error", $"Failed to convert Json : {e.Message}", "OK");
+            EditorUtility.DisplayDialog("Error", $"Failed to Convert JSON : {e.Message}", "OK");
             Debug.LogError($"JSON 변환 오류 : {e}");
         }
     }
 
+
+    //대화 JOSN을 스크립터블 오브젝트로 변환
+    private void ConvertJsonToDialogScriptableObjects()
+    {
+        //폴더 생성
+        if (!Directory.Exists(outputFolder))
+        {
+            Directory.CreateDirectory(outputFolder);
+        }
+
+        //JSON 파일 읽기
+        string JsonText = File.ReadAllText(jsonFilePath);
+
+        try
+        {
+
+            //JSON 파싱
+            List<DialogRowData> rowDataList = JsonConvert.DeserializeObject<List<DialogRowData>>(JsonText);
+
+            //대화 데이터 재구성
+            Dictionary<int, DialogSO> dialogMap = new Dictionary<int, DialogSO>();
+            List<DialogSO> createDialogs = new List<DialogSO>();
+
+            //1단계 : 대화 항목 생성
+            foreach (var rowData in rowDataList)
+            {
+                if (!rowData.id.HasValue)                           //id 없는 row 는 스킵 
+                    continue;
+
+                //id 있는 행을 대화로 처리 
+                DialogSO dialogSO = ScriptableObject.CreateInstance<DialogSO>();
+
+                //데이터 복사
+                dialogSO.id = rowData.id.Value;
+                dialogSO.characterName = rowData.characterName;
+                dialogSO.text = rowData.text;
+                dialogSO.nextId = rowData.nextId.HasValue ? rowData.nextId.Value : -1;
+                dialogSO.portraitPath = rowData.protraitPath;
+                dialogSO.choices = new List<DialogChoiceSO>();
+                //초상화 로드 (경로가 있을 경우)
+                if (!string.IsNullOrEmpty(rowData.protraitPath))
+                {
+                    dialogSO.portrait = Resources.Load<Sprite>(rowData.protraitPath);
+
+                    if (dialogSO.portrait == null)
+                    {
+                        Debug.LogWarning($"대화 {rowData.id}의 초상화를 찾을 수 없습니다.");
+                    }
+                }
+                dialogMap[dialogSO.id] = dialogSO;
+                createDialogs.Add(dialogSO);
+            }
+
+
+            //2단계 : 선택지 항목 처리 및 연결
+            foreach (var rowData in rowDataList)
+            {
+                //id가 없고 choiceText 가 있는 행은 선택지로 처리 
+                if (!rowData.id.HasValue && !string.IsNullOrEmpty(rowData.choiceText) && rowData.choiceNextId.HasValue)
+                {
+                    //이전 행의 ID를 부모 ID로 사용 (연속되는 선택지의 경우)
+                    int parentId = -1;
+
+                    //이 선택지 바로 위에 있는 대화 (id 가 있는 항목)을 찾음
+                    int currentIndex = rowDataList.IndexOf(rowData);
+                    for (int i = currentIndex - 1; i >= 0; i--)
+                    {
+                        if (rowDataList[i].id.HasValue)
+                        {
+                            parentId = rowDataList[i].id.Value;
+                            break;
+                        }
+                    }
+
+                    //부모 ID를 찾지 못했거나 부모 ID 가 -1인 경우 (첫 번째 항목)
+                    if (parentId == -1)
+                    {
+                        Debug.LogWarning($"선택지 {rowData.choiceText} 의 부모 대화를 찾을 수 없습니다. ");
+                    }
+
+                    if (dialogMap.TryGetValue(parentId, out DialogSO parentDialog))
+                    {
+                        DialogChoiceSO choiceSO = ScriptableObject.CreateInstance<DialogChoiceSO>();
+                        choiceSO.text = rowData.choiceText;
+                        choiceSO.nextId = rowData.choiceNextId.Value;
+
+                        //선택지 에셋 저장
+                        string choiceAssetPath = $"{outputFolder}/Choice_{parentId}_{parentDialog.choices.Count + 1}.asset";
+                        AssetDatabase.CreateAsset(choiceSO, choiceAssetPath);
+                        EditorUtility.SetDirty(choiceSO);
+                        parentDialog.choices.Add(choiceSO);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"선택지 {rowData.choiceText}를 연결할 대화 (ID : {parentId}를 찾을 수 없습니다.");
+                    }
+                }
+            }
+
+            //3단계 : 대화 스크립터블 오브젝트 저장
+            foreach (var dialog in createDialogs)
+            {
+                //스크립터블 오브젝트 저장 - ID 4자리 숫자 
+                string assetPath = $"{outputFolder}/Dialog {dialog.id.ToString("D4")}.asset";
+                AssetDatabase.CreateAsset(dialog, assetPath);
+
+                //에셋 이름 지정
+                dialog.name = $"Dialog_{dialog.id.ToString("D4")}";
+
+                EditorUtility.SetDirty(dialog);
+            }
+            //데이터 베이스 생성
+            if (createDatabase && createDialogs.Count > 0)
+            {
+                DialogDatabaseSO database = ScriptableObject.CreateInstance<DialogDatabaseSO>();
+                database.dialogs = createDialogs;
+
+                AssetDatabase.CreateAsset(database, $"{outputFolder}/DialogDatabase.asset");
+                EditorUtility.SetDirty(database);
+            }
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            EditorUtility.DisplayDialog("Success", $"created {createDialogs.Count} dialog scriptable objects!", "OK");
+        }
+        catch (System.Exception e)
+        {
+            EditorUtility.DisplayDialog("Error", $"Faild to convert JSON : {e.Message}", "OK");
+            Debug.LogError($"JSON 변환 오류 : {e}");
+        }
+
+    }
 }
 
 #endif

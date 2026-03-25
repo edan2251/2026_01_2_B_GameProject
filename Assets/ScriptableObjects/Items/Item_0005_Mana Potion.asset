@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ac028f28dea0c240a922f9425ccfde0, type: 3}
-  m_Name: Item_0005_Mana Potion
+  m_Name: Item_0005 + Mana Potion
   m_EditorClassIdentifier: Assembly-CSharp::ItemSO
   id: 5
   itemName: "\uB9C8\uB098 \uD3EC\uC158"
