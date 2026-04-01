@@ -22,7 +22,7 @@ public class DialogRowData
     public string characterName;
     public string text;
     public int? nextId;
-    public string protraitPath;
+    public string portraitPath;
     public string choiceText;
     public int? choiceNextId;
 }
@@ -216,12 +216,12 @@ public class JsonToScriptableConverter : EditorWindow
                 dialogSO.characterName = rowData.characterName;
                 dialogSO.text = rowData.text;
                 dialogSO.nextId = rowData.nextId.HasValue ? rowData.nextId.Value : -1;
-                dialogSO.portraitPath = rowData.protraitPath;
+                dialogSO.portraitPath = rowData.portraitPath;
                 dialogSO.choices = new List<DialogChoiceSO>();
                 //초상화 로드 (경로가 있을 경우)
-                if (!string.IsNullOrEmpty(rowData.protraitPath))
+                if (!string.IsNullOrEmpty(rowData.portraitPath))
                 {
-                    dialogSO.portrait = Resources.Load<Sprite>(rowData.protraitPath);
+                    dialogSO.portrait = Resources.Load<Sprite>(rowData.portraitPath);
 
                     if (dialogSO.portrait == null)
                     {
@@ -282,7 +282,7 @@ public class JsonToScriptableConverter : EditorWindow
             foreach (var dialog in createDialogs)
             {
                 //스크립터블 오브젝트 저장 - ID 4자리 숫자 
-                string assetPath = $"{outputFolder}/Dialog {dialog.id.ToString("D4")}.asset";
+                string assetPath = $"{outputFolder}/Dialog_{dialog.id.ToString("D4")}.asset";
                 AssetDatabase.CreateAsset(dialog, assetPath);
 
                 //에셋 이름 지정
