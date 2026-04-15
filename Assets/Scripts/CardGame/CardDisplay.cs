@@ -70,6 +70,7 @@ public class CardDisplay : MonoBehaviour
         {
             transform.position = originalPosition;
             Debug.Log($"마나가 부족합니다. (필요 : {cardData.manaCost} , 현재 : {CardManager.Instance.playerStats.currentMana}");
+            isDragging = false;
             return;
         }
 
